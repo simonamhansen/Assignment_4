@@ -1,0 +1,218 @@
+---
+title: "Assignment 4 - Coordinating Heart Rate"
+author: "Riccardo Fusaroli"
+date: "November 6, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analysing Heart Rate and Respiration data
+
+The goal of this assignment is to first familiarize you with heart rate, and respiration data and their preprocessing. The second part explores how to analyze interpersonal coordination of these signals.
+
+These are the questions you need to be able to answer at the end of the assignment (aka that you need to submit as part of the portfolio)
+
+1) How do you preprocess heart rate and respiration data? Describe the process. If any data needs to be excluded, list the excluded data and motivate the exclusion.
+
+2) Do you observe interpersonal coordination in heart rate and respiration? Describe your control baseline, the method used to quantify coordination, and the statistical models used to infer whether coordination was higher than in the baseline. Report the results of the models.
+
+3) Do you observe differences in coordination between conditions? Report the models and results.
+
+4) Is respiration coordination a likely driver of heart rate coordination? Describe how you would test for it. Bonus points if you actually run the tests and report methods and results.
+
+N.B. to give you a bit more data I included data from last year (Study1) and from your class (Study2). Note that synchronouns and turn-taking are the same across both studies, but the third condition is different: last year it was self-paced joint reading; this year it was the tv-series conversation. So you might want to exclude the self-paced reading (but, up to you!)
+
+## Step by step suggestions to solve the assignment
+
+### Exploring physiological signals
+
+- Choose one pair (one pair, three conditions)
+- Load the logs
+- Produce a plot of the participants' respiration signal and a different one of the participants' HR signal (for inspecting whether the data is usable)
+  N.B: remember the slides: artifacts, downsampling, scaling.
+  N.B. The gridExtra::grid.arrange() function allows you to display the plots side by side. E.g. grid.arrange(plot1, plot2, plot3, ncol=3)
+- Can you eye-ball which condition if any displays more physiological coordination?
+
+- Run crqa on heart rate and respiration data (find parameters, run crqa)
+- Does this tell you more than just eyeballing the plots?
+
+```{r}
+# Set working directory
+setwd("~/Portfolio4/Assignment_4/Data")
+
+# Load relevant packages
+library(ggplot2); library(groupdata2); library(dplyr); library(crqa); library(stringr)
+
+# Load in datafile
+Synch_data=read.csv("Study2_G5_T1_Synchronous.csv")
+Turn_data=read.csv("Study2_G5_T2_TurnTaking.csv")
+Conv_data=read.csv("Study2_G5_T3_Conversation.csv")
+
+# To create plots for respiration 
+ggplot(Conv_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
+ggplot(Turn_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
+ggplot(Synch_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
+
+
+# To create plots for heart rate
+ggplot(Conv_data, aes(x=time, y= HR1)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2), color = "chartreuse4")
+ggplot(Turn_data, aes(x=time, y= HR1)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2), color = "chartreuse4")
+ggplot(Synch_data, aes(x=time, y= HR1)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2), color = "chartreuse4")
+
+# To downsample data
+Conv_data = Conv_data %>% group(n = 100, method = 'greedy') %>%   dplyr::summarise(time = mean(time,na.rm=T), HR1 = mean(HR1,na.rm=T), HR2 = mean(HR2,na.rm=T), Resp1 = mean(Resp1,na.rm=T), Resp2 = mean(Resp2,na.rm=T))
+
+Synch_data = Synch_data %>% group(n = 100, method = 'greedy') %>%   dplyr::summarise(time = mean(time,na.rm=T), HR1 = mean(HR1,na.rm=T), HR2 = mean(HR2,na.rm=T), Resp1 = mean(Resp1,na.rm=T), Resp2 = mean(Resp2,na.rm=T))
+
+Turn_data = Turn_data %>% group(n = 100, method = 'greedy') %>%   dplyr::summarise(time = mean(time,na.rm=T), HR1 = mean(HR1,na.rm=T), HR2 = mean(HR2,na.rm=T), Resp1 = mean(Resp1,na.rm=T), Resp2 = mean(Resp2,na.rm=T))
+
+# To remove outliers
+removeOuts <- function(ts,threshold){
+  ts[ts > (mean(ts,na.rm=T) +              (threshold*sd(ts,na.rm=T))) |  ts < (mean(ts,na.rm=T) -           (threshold*sd(ts,na.rm=T)))] = mean(ts,na.rm=T)   
+  return(ts)}
+
+threshold=1.5 
+
+# Remember to remove outliers for respiration!! 
+Conv_data$HR1=removeOuts(Conv_data$HR1,threshold)
+Conv_data$HR2=removeOuts(Conv_data$HR2,threshold)
+Turn_data$HR1=removeOuts(Turn_data$HR1, threshold)
+Turn_data$HR2=removeOuts(Turn_data$HR2, threshold)
+Synch_data$HR1=removeOuts(Synch_data$HR1, threshold)
+Synch_data$HR2=removeOuts(Synch_data$HR2, threshold)
+# Remove Outlier fucks up CRQA analysis!
+
+# To scale data
+Conv_data$Resp1S=scale(Conv_data$Resp1)
+Conv_data$Resp2S=scale(Conv_data$Resp2)  
+Conv_data$HR1S=scale(Conv_data$HR1)
+Conv_data$HR2S=scale(Conv_data$HR2)
+
+Turn_data$Resp1S=scale(Turn_data$Resp1)
+Turn_data$Resp2S=scale(Turn_data$Resp2)  
+Turn_data$HR1S=scale(Turn_data$HR1)
+Turn_data$HR2S=scale(Turn_data$HR2)
+
+Synch_data$Resp1S=scale(Synch_data$Resp1)
+Synch_data$Resp2S=scale(Synch_data$Resp2)  
+Synch_data$HR1S=scale(Synch_data$HR1)
+Synch_data$HR2S=scale(Synch_data$HR2)
+
+# To create HR plot for sclaed data
+plot1 = ggplot(Conv_data, aes(x=time, y= HR1S)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2S), color = "chartreuse4")
+plot2 = ggplot(Turn_data, aes(x=time, y= HR1S)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2S), color = "chartreuse4")
+plot3 = ggplot(Synch_data, aes(x=time, y= HR1S)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2S), color = "chartreuse4")
+
+# To make one grid with all HR plots
+gridExtra::grid.arrange(plot1, plot2, plot3)
+
+plot4 = ggplot(Conv_data, aes(x=time, y= Resp1S)) + geom_line(color = "red") + geom_line(aes(x=time, y=Resp2S), color = "blue")
+plot5 = ggplot(Turn_data, aes(x=time, y= Resp1S)) + geom_line(color = "red") + geom_line(aes(x=time, y=Resp2S), color = "blue")
+plot6 = ggplot(Synch_data, aes(x=time, y= Resp1S)) + geom_line(color = "red") + geom_line(aes(x=time, y=Resp2S), color = "blue")
+
+# To make one grid with all Respiration plots
+gridExtra::grid.arrange(plot4, plot5, plot6)
+
+# To perform CRQA
+par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
+
+# To create a loop to get paramters 
+files = list(Conv_data, Synch_data, Turn_data)
+
+Dimension = NULL
+Radius = NULL
+Delay = NULL
+
+n=1
+
+for (file in files) {
+ans_Resp = optimizeParam(file$Resp1S, file$Resp2S, par, min.rec = 3.5, max.rec = 4.5)
+
+Dimension[n] = ans_Resp$emddim
+Radius[n] = ans_Resp$radius
+Delay[n] = ans_Resp$delay
+
+n=n+1
+
+}
+
+parameters_resp = data.frame(Dimension, Radius, Delay)
+
+#parameters_HR = 
+
+mean(parameters_resp$Dimension) # 2.3 = 2
+mean(parameters_resp$Delay) # 36
+mean(parameters_resp$Radius) # 0.443
+
+Results=crqa (Synch_data$Resp1S, Synch_data$Resp2S, delay=36, embed=2, radius= 0.443,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+
+# To plot RQA
+RP=Results$RP 
+RP = matrix(as.numeric(RP), nrow = ncol(RP))  
+cols = c("white","blue4") 
+image(RP, xlab = "", ylab = "", col = cols)
+
+# To explore lags of coordination 
+Profile=drpdfromts(Synch_data$Resp1S, Synch_data$Resp2S,datatype = 'continuous',ws=50,radius=0.443) 
+timecourse = round( seq(-5000,5000,100)/1000, digit = 1) 
+maxlag = Profile$maxlag/1000 
+profile = Profile$profile*100 
+Prof=data.frame(profile) 
+ggplot(Prof, aes(timecourse,profile))+geom_line()+ geom_vline(xintercept = timecourse[maxlag], colour='red')
+
+```
+
+
+### Systematically pre-process the data
+- Loop through all the files (either with a loop or with a function), check which files should be excluded, if any, and save the pre-processed time-series. Tip: plot and visually inspect the data to figure out which should be excluded.
+- Run crqa on all the pre-processed time-series and save the output (don't forget to add columns with study, group, condition and trial). Tip: remember to first assess optimal parameters (dimensions, delay, radius) across all timeseries. Tip: it will often fail, just take whatever parameters you get, select optimal across timeseries parameters and run crqa on all timeseries with those. Tip: double check the rr. When I ran the loop, I got very low rr, so I adjusted the radius until the average of rr across all pairs was approx. 4%.
+
+```{r}
+
+filelist = list.files(path = "Data", pattern = ".csv")
+
+# To create a function that can preprocess the data
+preprocessing = function(data) {
+  
+  data = data %>% group(n = 100, method = 'greedy') %>%   dplyr::summarise(time = mean(time,na.rm=T), HR1 = mean(HR1,na.rm=T), HR2 = mean(HR2,na.rm=T), Resp1 = mean(Resp1,na.rm=T), Resp2 = mean(Resp2,na.rm=T))
+  
+  data$HR1=removeOuts(data$HR1,threshold)
+  data$HR2=removeOuts(data$HR2,threshold)
+  data$Resp1=removeOuts(data$Resp1,threshold)
+  data$Resp2=removeOuts(data$Resp2,threshold)
+  
+  data$Resp1=scale(data$Resp1)
+  data$Resp2=scale(data$Resp2)  
+  data$HR1=scale(data$HR1)
+  data$HR2=scale(data$HR2)
+  
+  return(data)
+}
+
+# To create a loop to preproces all the data
+
+
+
+```
+
+### Creating controls: shuffled controls
+ - loop through all pairs and conditions
+ - shuffle the timeseries (take a timeseries and rearrange its values in a random order). Tip check the sample() function
+ - run crqa and save the output. NB. which delay, embed, radius parameters should you use?
+ - statistically compare the crqa indexes in real and shuffled pairs
+ 
+### TRICKY! Creating controls: surrogate pair controls
+ - Per each real pair, identify at least one surrogate pair (matching one of the participants, with somebody doing the same task, but in a different pair). Tip: Celine will share a commented script
+ - Run crqa on all the surrogate pairs and save the output. NB. which delay, embed, radius parameters should you use?
+ - Test whether crqa shows a difference between real and surrogate pairs
+
+### Testing effects of conditions
+ - make a (probably underpowered) mixed model testing effects of the different conditions on heart rate and respiration coordination
+ - N.B: would it make sense to include surrogate pairs? and if so how? what would that tell you?
+
+### Effects of respiration coordination on heart rate coordination
+ - describe how you would test those.
+ - Optional: run the models and report them
