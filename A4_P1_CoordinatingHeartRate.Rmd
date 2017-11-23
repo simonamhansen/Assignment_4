@@ -47,9 +47,9 @@ setwd("~/Portfolio4/Assignment_4")
 library(ggplot2); library(groupdata2); library(dplyr); library(crqa); library(stringr); library(readr)
 
 # Load in datafile
-Synch_data=read.csv("Study2_G5_T1_Synchronous.csv")
-Turn_data=read.csv("Study2_G5_T2_TurnTaking.csv")
-Conv_data=read.csv("Study2_G5_T3_Conversation.csv")
+Synch_data=read.csv("Data/Study2_G5_T1_Synchronous.csv")
+Turn_data=read.csv("Data/Study2_G5_T2_TurnTaking.csv")
+Conv_data=read.csv("Data/Study2_G5_T3_Conversation.csv")
 
 # To create plots for respiration 
 ggplot(Conv_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
@@ -74,16 +74,21 @@ removeOuts <- function(ts,threshold){
   ts[ts > (mean(ts,na.rm=T) +              (threshold*sd(ts,na.rm=T))) |  ts < (mean(ts,na.rm=T) -           (threshold*sd(ts,na.rm=T)))] = mean(ts,na.rm=T)   
   return(ts)}
 
-threshold=1.5 
+threshold=2.5 
 
-# Remember to remove outliers for respiration!! 
 Conv_data$HR1=removeOuts(Conv_data$HR1,threshold)
 Conv_data$HR2=removeOuts(Conv_data$HR2,threshold)
 Turn_data$HR1=removeOuts(Turn_data$HR1, threshold)
 Turn_data$HR2=removeOuts(Turn_data$HR2, threshold)
 Synch_data$HR1=removeOuts(Synch_data$HR1, threshold)
 Synch_data$HR2=removeOuts(Synch_data$HR2, threshold)
-# Remove Outlier fucks up CRQA analysis!
+
+Conv_data$Resp1=removeOuts(Conv_data$Resp1,threshold)
+Conv_data$Resp2=removeOuts(Conv_data$Resp2,threshold)
+Turn_data$Resp1=removeOuts(Turn_data$Resp1, threshold)
+Turn_data$Resp2=removeOuts(Turn_data$Resp2, threshold)
+Synch_data$Resp1=removeOuts(Synch_data$Resp1, threshold)
+Synch_data$Resp2=removeOuts(Synch_data$Resp2, threshold)
 
 # To scale data
 Conv_data$Resp1S=scale(Conv_data$Resp1)
@@ -122,32 +127,61 @@ par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 4
 # To create a loop to get paramters 
 files = list(Conv_data, Synch_data, Turn_data)
 
-Dimension = NULL
-Radius = NULL
-Delay = NULL
+Dimension_Resp = NULL
+Radius_Resp = NULL
+Delay_Resp = NULL
+Dimension_HR = NULL
+Radius_HR = NULL
+Delay_HR = NULL
 
 n=1
 
 for (file in files) {
-ans_Resp = optimizeParam(file$Resp1S, file$Resp2S, par, min.rec = 3.5, max.rec = 4.5)
+ans_Resp = try(optimizeParam(file$Resp1S, file$Resp2S, par, min.rec = 2, max.rec = 8))
+ans_HR = try(optimizeParam(file$HR1S, file$HR2S, par, min.rec = 2, max.rec = 8))
 
-Dimension[n] = ans_Resp$emddim
-Radius[n] = ans_Resp$radius
-Delay[n] = ans_Resp$delay
+if (length(ans_Resp) > 1) {
+  
+Dimension_Resp[n] = ans_Resp$emddim
+Radius_Resp[n] = ans_Resp$radius
+Delay_Resp[n] = ans_Resp$delay
+  } 
+  
+  else {
+    
+Dimension_Resp[n] = NA
+Radius_Resp[n] = NA
+Delay_Resp[n] = NA
+    
+  }
 
+if (length(ans_HR) > 1) {
+  
+Dimension_HR[n] = ans_HR$emddim
+Radius_HR[n] = ans_HR$radius
+Delay_HR[n] = ans_HR$delay
+  } 
+  
+  else {
+    
+Dimension_HR[n] = NA
+Radius_HR[n] = NA
+Delay_HR[n] = NA
+    
+  }
+  
 n=n+1
 
 }
 
-parameters_resp = data.frame(Dimension, Radius, Delay)
+parameters = data.frame(Dimension_Resp, Radius_Resp, Delay_Resp, Dimension_HR, Radius_HR, Delay_HR)
 
-#parameters_HR = 
 
-mean(parameters_resp$Dimension) # 2.3 = 2
-mean(parameters_resp$Delay) # 36
-mean(parameters_resp$Radius) # 0.443
+mean(parameters$Dimension_Resp, na.rm = TRUE) # 2
+mean(parameters$Delay_Resp, na.rm = TRUE) # 28
+mean(parameters$Radius_Resp, na.rm = TRUE) # 0.378
 
-Results=crqa (Synch_data$Resp1S, Synch_data$Resp2S, delay=36, embed=2, radius= 0.443,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+Results=crqa (Synch_data$Resp1S, Synch_data$Resp2S, delay=28, embed=2, radius= 0.378,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
 
 # To plot RQA
 RP=Results$RP 
@@ -204,6 +238,39 @@ for (file in filelist) {
   
   Datafile$filename = filelist[n]
   
+  ans_Resp = try(optimizeParam(Datafile$Resp1, Datafile$Resp2, par, min.rec = 2, max.rec = 8))
+  ans_HR = try(optimizeParam(Datafile$HR1, Datafile$HR2, par, min.rec = 2, max.rec = 8))
+  
+  if (length(ans_Resp) > 1) {
+  
+Datafile$Dimension_Resp = ans_Resp$emddim
+Datafile$Radius_Resp = ans_Resp$radius
+Datafile$Delay_Resp = ans_Resp$delay
+  } 
+  
+  else {
+    
+Datafile$Dimension_Resp = NA
+Datafile$Radius_Resp = NA
+Datafile$Delay_Resp = NA
+    
+  }
+
+if (length(ans_HR) > 1) {
+  
+Datafile$Dimension_HR = ans_HR$emddim
+Datafile$Radius_HR = ans_HR$radius
+Datafile$Delay_HR = ans_HR$delay
+  } 
+  
+  else {
+    
+Datafile$Dimension_HR = NA
+Datafile$Radius_HR = NA
+Datafile$Delay_HR = NA
+    
+  }
+  
   Final_data = rbind(Final_data, Datafile)
   
   Resp_plot= ggplot(Datafile, aes(x=time, y= Resp1)) + geom_line(color = "red") + geom_line(aes(x=time, y=Resp2), color = "blue")
@@ -217,10 +284,40 @@ for (file in filelist) {
   n=n+1
 } 
 
+# To get column with study number
 
-  
+for (file in 1:nrow(Final_data)){
+  if (grepl("Study1", Final_data$filename[file])){
+    Final_data$Study[file] = 1}
+  if (grepl("Study2", Final_data$filename[file])){
+    Final_data$Study[file] = 2}
+}
 
+# To get group number
+Final_data$Group=regmatches(Final_data$filename, regexpr("[G].*[0-9]", Final_data$filename))
 
+Final_data$Group = gsub("[G, _, T]", "", Final_data$Group)
+
+Final_data$Group=substr(Final_data$Group, 1, nchar(Final_data$Group)-1)
+
+# To get trial number
+Final_data$Trial=regmatches(Final_data$filename, regexpr("[T].*[0-9]", Final_data$filename))
+
+Final_data$Trial = gsub("[T]", "", Final_data$Trial)
+
+# To get condition
+Final_data = Final_data %>% group_by(filename) %>% mutate(Condition = gsub('.{4}$', '', strsplit(filename, "_")[[1]][4]))
+
+# To get mean parameters for CRQA
+mean(Final_data$Dimension_Resp, na.rm = TRUE) # 3.12 = 3
+mean(Final_data$Radius_Resp, na.rm = TRUE) # 0.596
+mean(Final_data$Delay_Resp, na.rm = TRUE) # 28.81 = 29
+
+mean(Final_data$Dimension_HR, na.rm = TRUE) # 14.24 = 14 
+mean(Final_data$Radius_HR, na.rm = TRUE) # 1.274
+mean(Final_data$Delay_HR, na.rm = TRUE) # 21.39 = 21
+
+# To perform CRQA
 ```
 
 ### Creating controls: shuffled controls
