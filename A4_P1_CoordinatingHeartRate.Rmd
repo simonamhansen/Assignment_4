@@ -284,6 +284,14 @@ Datafile$Delay_HR = NA
   n=n+1
 } 
 
+# Based on plots we choose to remove the following data:
+  # Study1_G1_T1, Study1_G1_T2, Study1_G2_T1, Study1_G2_T2
+
+Final_data=Final_data[Final_data$filename != "Study1_G1_T1_Synchronous.csv", ]
+Final_data=Final_data[Final_data$filename != "Study1_G1_T2_TurnTaking.csv", ]
+Final_data=Final_data[Final_data$filename != "Study1_G2_T1_TurnTaking.csv", ]
+Final_data=Final_data[Final_data$filename != "Study1_G2_T2_Synchronous.csv", ]
+
 # To get column with study number
 
 for (file in 1:nrow(Final_data)){
@@ -308,16 +316,67 @@ Final_data$Trial = gsub("[T]", "", Final_data$Trial)
 # To get condition
 Final_data = Final_data %>% group_by(filename) %>% mutate(Condition = gsub('.{4}$', '', strsplit(filename, "_")[[1]][4]))
 
+# To write data to a csv file
+write.csv(Final_data, file = "Final_data.csv")
+
 # To get mean parameters for CRQA
-mean(Final_data$Dimension_Resp, na.rm = TRUE) # 3.12 = 3
-mean(Final_data$Radius_Resp, na.rm = TRUE) # 0.596
-mean(Final_data$Delay_Resp, na.rm = TRUE) # 28.81 = 29
+mean(Final_data$Dimension_Resp, na.rm = TRUE) # 3.20 = 3
+mean(Final_data$Radius_Resp, na.rm = TRUE) # 0.614
+mean(Final_data$Delay_Resp, na.rm = TRUE) # 29.46 = 29
 
-mean(Final_data$Dimension_HR, na.rm = TRUE) # 14.24 = 14 
-mean(Final_data$Radius_HR, na.rm = TRUE) # 1.274
-mean(Final_data$Delay_HR, na.rm = TRUE) # 21.39 = 21
+mean(Final_data$Dimension_HR, na.rm = TRUE) # 11.95 = 12 
+mean(Final_data$Radius_HR, na.rm = TRUE) # 1.633
+mean(Final_data$Delay_HR, na.rm = TRUE) # 29.89 = 30
 
-# To perform CRQA
+# To perform CRQA for each file
+
+filelist2 = list.files(path = "PreprocessedData", pattern = ".csv")
+
+CRQA_data = data.frame()
+filename = NULL
+DET_HR = NULL
+maxL_HR = NULL
+RR_HR = NULL
+L_HR = NULL
+ENTR_HR = NULL
+rENTR_HR = NULL
+DET_Resp = NULL
+maxL_Resp = NULL
+RR_Resp = NULL
+L_Resp = NULL
+ENTR_Resp = NULL
+rENTR_Resp = NULL
+n = 1
+
+for(file in filelist2) {
+  d=read_csv(paste0("PreprocessedData/",file))
+  
+  Results_HR = crqa(d$HR1, d$HR2, delay=30, embed=12, radius=2.6,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+  
+  Results_Resp = crqa(d$Resp1, d$HR2, delay=29, embed=3, radius=0.8,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+  
+  filename[n] = files[n] 
+ maxL_HR[n] = Results_HR$maxL
+ DET_HR[n] = Results_HR$DET
+ RR_HR[n] = Results_HR$RR
+ L_HR[n] = Results_HR$L
+ ENTR_HR[n] = Results_HR$ENTR
+ rENTR_HR[n] = Results_HR$rENTR
+ maxL_Resp[n] = Results_Resp$maxL
+ DET_Resp[n] = Results_Resp$DET
+ RR_Resp[n] = Results_Resp$RR
+ L_Resp[n] = Results_Resp$L
+ ENTR_Resp[n] = Results_Resp$ENTR
+ rENTR_Resp[n] = Results_Resp$rENTR 
+  
+ n=n+1
+}
+
+
+CRQA_data = data.frame(maxL_HR, DET_HR, RR_HR, L_HR, ENTR_HR, rENTR_HR, maxL_Resp,DET_Resp, RR_Resp, L_Resp, ENTR_Resp, rENTR_Resp)
+
+
+
 ```
 
 ### Creating controls: shuffled controls
@@ -326,14 +385,27 @@ mean(Final_data$Delay_HR, na.rm = TRUE) # 21.39 = 21
  - run crqa and save the output. NB. which delay, embed, radius parameters should you use?
  - statistically compare the crqa indexes in real and shuffled pairs
  
+```{r}
+
+
+```
+ 
 ### TRICKY! Creating controls: surrogate pair controls
  - Per each real pair, identify at least one surrogate pair (matching one of the participants, with somebody doing the same task, but in a different pair). Tip: Celine will share a commented script
  - Run crqa on all the surrogate pairs and save the output. NB. which delay, embed, radius parameters should you use?
  - Test whether crqa shows a difference between real and surrogate pairs
+ 
+```{r}
+
+```
 
 ### Testing effects of conditions
  - make a (probably underpowered) mixed model testing effects of the different conditions on heart rate and respiration coordination
  - N.B: would it make sense to include surrogate pairs? and if so how? what would that tell you?
+
+```{r}
+
+```
 
 ### Effects of respiration coordination on heart rate coordination
  - describe how you would test those.
