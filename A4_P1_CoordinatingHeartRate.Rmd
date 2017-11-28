@@ -355,7 +355,7 @@ for(file in filelist2) {
   
   Results_Resp = crqa(d$Resp1, d$HR2, delay=29, embed=3, radius=0.8,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
   
-  filename[n] = files[n] 
+  filename[n] = filelist2[n] 
  maxL_HR[n] = Results_HR$maxL
  DET_HR[n] = Results_HR$DET
  RR_HR[n] = Results_HR$RR
@@ -376,6 +376,33 @@ for(file in filelist2) {
 CRQA_data = data.frame(maxL_HR, DET_HR, RR_HR, L_HR, ENTR_HR, rENTR_HR, maxL_Resp,DET_Resp, RR_Resp, L_Resp, ENTR_Resp, rENTR_Resp)
 
 
+CRQA = function(data) {
+  RespCRQA = crqa(data$Resp1, data$Resp2, delay = 29, embed = 3,
+                   radius = 0.8, normalize = 0, rescale = 0,
+                   mindiagline = 2, minvertline = 2)
+  RespCRQA$RP = NULL  # Remove large matrix
+  RespCRQA = as_tibble(RespCRQA) %>%
+    mutate(type = 'Resp')
+  
+  HrCRQA = crqa(data$HR1, data$HR2, delay = 30, embed = 12,
+                radius = 2.6, normalize = 0, rescale = 0,
+                mindiagline = 2, minvertline = 2)
+  HrCRQA$RP = NULL  # Remove large matrix
+  HrCRQA = as_tibble(HrCRQA) %>%
+    mutate(type = 'HR')
+  
+  return(rbind(RespCRQA, HrCRQA))
+  
+}
+
+
+crqa_results = Final_data %>%
+  dplyr::select(-c(.groups)) %>%  # Remove .groups (not needed right?)
+  dplyr::group_by(filename) %>%  # Group by each file
+  dplyr::do(CRQA(.)) %>%  # Do CRQA on each group (file)
+  dplyr::ungroup()  # Ungroup (prob. not needed, didn't check) 
+
+Final_data2 = merge(Final_data, crqa_results, by = "filename")
 
 ```
 
@@ -387,6 +414,50 @@ CRQA_data = data.frame(maxL_HR, DET_HR, RR_HR, L_HR, ENTR_HR, rENTR_HR, maxL_Res
  
 ```{r}
 
+filename = NULL
+DET_HR = NULL
+maxL_HR = NULL
+RR_HR = NULL
+L_HR = NULL
+ENTR_HR = NULL
+rENTR_HR = NULL
+DET_Resp = NULL
+maxL_Resp = NULL
+RR_Resp = NULL
+L_Resp = NULL
+ENTR_Resp = NULL
+rENTR_Resp = NULL
+n = 1
+
+for (file in filelist2) {
+  d=read_csv(paste0("PreprocessedData/",file))
+  
+  sample(d)
+  
+  Results_HR = crqa(d$HR1, d$HR2, delay=30, embed=12, radius=2.6,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+  
+  Results_Resp = crqa(d$Resp1, d$HR2, delay=29, embed=3, radius=0.8,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+  
+  filename[n] = filelist2[n] 
+ maxL_HR[n] = Results_HR$maxL
+ DET_HR[n] = Results_HR$DET
+ RR_HR[n] = Results_HR$RR
+ L_HR[n] = Results_HR$L
+ ENTR_HR[n] = Results_HR$ENTR
+ rENTR_HR[n] = Results_HR$rENTR
+ maxL_Resp[n] = Results_Resp$maxL
+ DET_Resp[n] = Results_Resp$DET
+ RR_Resp[n] = Results_Resp$RR
+ L_Resp[n] = Results_Resp$L
+ ENTR_Resp[n] = Results_Resp$ENTR
+ rENTR_Resp[n] = Results_Resp$rENTR 
+  
+ n=n+1
+  
+  
+}
+
+CRQA_data = data.frame(filename, maxL_HR, DET_HR, RR_HR, L_HR, ENTR_HR, rENTR_HR, maxL_Resp,DET_Resp, RR_Resp, L_Resp, ENTR_Resp, rENTR_Resp)
 
 ```
  
