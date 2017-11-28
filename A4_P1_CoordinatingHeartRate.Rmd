@@ -414,50 +414,29 @@ Final_data2 = merge(Final_data, crqa_results, by = "filename")
  
 ```{r}
 
-filename = NULL
-DET_HR = NULL
-maxL_HR = NULL
-RR_HR = NULL
-L_HR = NULL
-ENTR_HR = NULL
-rENTR_HR = NULL
-DET_Resp = NULL
-maxL_Resp = NULL
-RR_Resp = NULL
-L_Resp = NULL
-ENTR_Resp = NULL
-rENTR_Resp = NULL
-n = 1
+CRQA_shuffled = data.frame()
+n=1
 
 for (file in filelist2) {
   d=read_csv(paste0("PreprocessedData/",file))
   
-  sample(d)
+  d$HR1 = sample(d$HR1)
+  d$HR2 = sample(d$HR2)
+  d$Resp1 = sample(d$Resp1)
+  d$Resp2 = sample(d$Resp2)
   
-  Results_HR = crqa(d$HR1, d$HR2, delay=30, embed=12, radius=2.6,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+  data=CRQA(d)
   
-  Results_Resp = crqa(d$Resp1, d$HR2, delay=29, embed=3, radius=0.8,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+  data$filename = filelist2[n]
   
-  filename[n] = filelist2[n] 
- maxL_HR[n] = Results_HR$maxL
- DET_HR[n] = Results_HR$DET
- RR_HR[n] = Results_HR$RR
- L_HR[n] = Results_HR$L
- ENTR_HR[n] = Results_HR$ENTR
- rENTR_HR[n] = Results_HR$rENTR
- maxL_Resp[n] = Results_Resp$maxL
- DET_Resp[n] = Results_Resp$DET
- RR_Resp[n] = Results_Resp$RR
- L_Resp[n] = Results_Resp$L
- ENTR_Resp[n] = Results_Resp$ENTR
- rENTR_Resp[n] = Results_Resp$rENTR 
+  CRQA_shuffled=rbind(data, CRQA_shuffled)
   
- n=n+1
-  
+  n=n+1
   
 }
 
-CRQA_data = data.frame(filename, maxL_HR, DET_HR, RR_HR, L_HR, ENTR_HR, rENTR_HR, maxL_Resp,DET_Resp, RR_Resp, L_Resp, ENTR_Resp, rENTR_Resp)
+
+
 
 ```
  
