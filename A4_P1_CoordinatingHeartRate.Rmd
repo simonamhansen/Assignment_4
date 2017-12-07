@@ -1,6 +1,6 @@
 ---
 title: "Assignment 4 - Coordinating Heart Rate"
-author: "Riccardo Fusaroli"
+author: "Simon Hansen"
 date: "November 6, 2017"
 output: html_document
 ---
@@ -55,7 +55,6 @@ Conv_data=read.csv("Data/Study2_G5_T3_Conversation.csv")
 ggplot(Conv_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
 ggplot(Turn_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
 ggplot(Synch_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
-
 
 # To create plots for heart rate
 ggplot(Conv_data, aes(x=time, y= HR1)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2), color = "chartreuse4")
@@ -205,7 +204,7 @@ ggplot(Prof, aes(timecourse,profile))+geom_line()+ geom_vline(xintercept = timec
 - Run crqa on all the pre-processed time-series and save the output (don't forget to add columns with study, group, condition and trial). Tip: remember to first assess optimal parameters (dimensions, delay, radius) across all timeseries. Tip: it will often fail, just take whatever parameters you get, select optimal across timeseries parameters and run crqa on all timeseries with those. Tip: double check the rr. When I ran the loop, I got very low rr, so I adjusted the radius until the average of rr across all pairs was approx. 4%.
 
 ```{r}
-
+# To create a filelist
 filelist = list.files(path = "Data", pattern = ".csv")
 
 # To create a function that can preprocess the data
@@ -226,7 +225,7 @@ preprocessing = function(data) {
   return(data)
 }
 
-# To create a loop to preproces all the data
+# To create a loop to preproces all the data and create plots
 Final_data = data.frame()
 
 n=1
@@ -293,7 +292,6 @@ Final_data=Final_data[Final_data$filename != "Study1_G2_T1_TurnTaking.csv", ]
 Final_data=Final_data[Final_data$filename != "Study1_G2_T2_Synchronous.csv", ]
 
 # To get column with study number
-
 for (file in 1:nrow(Final_data)){
   if (grepl("Study1", Final_data$filename[file])){
     Final_data$Study[file] = 1}
@@ -328,55 +326,7 @@ mean(Final_data$Dimension_HR, na.rm = TRUE) # 11.95 = 12
 mean(Final_data$Radius_HR, na.rm = TRUE) # 1.633
 mean(Final_data$Delay_HR, na.rm = TRUE) # 29.89 = 30
 
-# To perform CRQA for each file
-
-filelist2 = list.files(path = "PreprocessedData", pattern = ".csv")
-
-# Please delete this loop
-CRQA_data = data.frame()
-filename = NULL
-DET_HR = NULL
-maxL_HR = NULL
-RR_HR = NULL
-L_HR = NULL
-ENTR_HR = NULL
-rENTR_HR = NULL
-DET_Resp = NULL
-maxL_Resp = NULL
-RR_Resp = NULL
-L_Resp = NULL
-ENTR_Resp = NULL
-rENTR_Resp = NULL
-n = 1
-
-for(file in filelist2) {
-  d=read_csv(paste0("PreprocessedData/",file))
-  
-  Results_HR = crqa(d$HR1, d$HR2, delay=30, embed=12, radius=2.6,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
-  
-  Results_Resp = crqa(d$Resp1, d$HR2, delay=29, embed=3, radius=0.8,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
-  
-  filename[n] = filelist2[n] 
- maxL_HR[n] = Results_HR$maxL
- DET_HR[n] = Results_HR$DET
- RR_HR[n] = Results_HR$RR
- L_HR[n] = Results_HR$L
- ENTR_HR[n] = Results_HR$ENTR
- rENTR_HR[n] = Results_HR$rENTR
- maxL_Resp[n] = Results_Resp$maxL
- DET_Resp[n] = Results_Resp$DET
- RR_Resp[n] = Results_Resp$RR
- L_Resp[n] = Results_Resp$L
- ENTR_Resp[n] = Results_Resp$ENTR
- rENTR_Resp[n] = Results_Resp$rENTR 
-  
- n=n+1
-}
-
-
-CRQA_data = data.frame(maxL_HR, DET_HR, RR_HR, L_HR, ENTR_HR, rENTR_HR, maxL_Resp,DET_Resp, RR_Resp, L_Resp, ENTR_Resp, rENTR_Resp)
-
-
+# To create a function that can perform CRQA for each file
 CRQA = function(data) {
   RespCRQA = crqa(data$Resp1, data$Resp2, delay = 29, embed = 3,
                    radius = 0.8, normalize = 0, rescale = 0,
@@ -393,10 +343,9 @@ CRQA = function(data) {
     mutate(type = 'HR')
   
   return(rbind(RespCRQA, HrCRQA))
-  
 }
 
-
+# To use the function 
 crqa_results = Final_data %>%
   dplyr::select(-c(.groups)) %>%  # Remove .groups (not needed right?)
   dplyr::group_by(filename) %>%  # Group by each file
@@ -405,6 +354,7 @@ crqa_results = Final_data %>%
 
 Final_data2 = merge(Final_data, crqa_results, by = "filename")
 
+# To write the data to a csv file
 write.csv(Final_data2, file = "Final_data2.csv")
 
 ```
@@ -416,7 +366,10 @@ write.csv(Final_data2, file = "Final_data2.csv")
  - statistically compare the crqa indexes in real and shuffled pairs
  
 ```{r}
+# To create a file list
+filelist2 = list.files(path = "PreprocessedData", pattern = ".csv")
 
+# To loop through each file, shuffle the data and perform CRQA on the shuffled data
 CRQA_shuffled = data.frame()
 n=1
 
@@ -438,7 +391,7 @@ for (file in filelist2) {
   
 }
 
-# To remove last 4 characters in filename
+# To remove last 4 characters in filename (replication of .csv)
 CRQA_shuffled$filename = substr(CRQA_shuffled$filename,1,nchar(CRQA_shuffled$filename)-4)
 
 # To specify type of CRQA
@@ -450,12 +403,24 @@ CRQA_data = rbind(crqa_results, CRQA_shuffled)
 CRQA_Resp=subset(CRQA_data[CRQA_data$type == "Resp",])
 CRQA_HR=subset(CRQA_data[CRQA_data$type == "HR",])
 
-# Statistically compare CRQA indexes
+# Statistically compare relevant CRQA indexes in normal data and shuffled controls
 m1=lm(L ~ CRQA, CRQA_HR)
 summary(m1)
 
 m2 = lm(L~ CRQA, CRQA_Resp)
 summary(m2)
+
+m3=lm(RR ~ CRQA, CRQA_HR)
+summary(m3)
+
+m4 = lm(RR~ CRQA, CRQA_Resp)
+summary(m4)
+
+m5 = lm (ENTR ~ CRQA_HR)
+summary(m5)
+
+m6 = lm(ENTR ~ CRQA_Resp)
+summary(m6)
 
 ```
  
@@ -465,7 +430,10 @@ summary(m2)
  - Test whether crqa shows a difference between real and surrogate pairs
  
 ```{r}
-# Study 1
+# To set working directory
+setwd("~/Portfolio4/Assignment_4")
+
+# To create surrogate pairs for study 1
 prepro_filelist = list.files(pattern = "Study1", path = "PreprocessedAll") # load the preprocessed files
 
 num=str_extract_all(prepro_filelist, "\\d+") #extract all numbers in the file name (i.e Study?_G?_T?)
@@ -529,7 +497,7 @@ for (co in c("Synchronous","TurnTaking","SelfPaced")){ #loop through a list of c
   }
 }
 
-# Study 2 
+# To create surrogate pairs for Study 2
 
 prepro_filelist = list.files(pattern = "Study2") # load the preprocessed files
 
@@ -595,7 +563,7 @@ for (co in c("Synchronous","TurnTaking","Conversation")){ #loop through a list o
 # To set working directory
 setwd("~/Portfolio4/Assignment_4")
 
-# To create filelist
+# To create new filelist
 filelist3 = list.files(path = "surrogate") 
 
 # To perform CRQA on surrogate pairs
@@ -615,9 +583,36 @@ for (file in filelist3) {
   
 }
 
+# To save the file to a csv file
 write.csv(CRQA_surrogate, file = "CRQA_surrogate.csv")
 
-read.csv("CRQA_surrogate.csv")
+# To specify type of CRQA
+CRQA_surrogate$CRQA = "Surrogate"
+
+# To combine dataset
+CRQA_data = rbind(CRQA_data, CRQA_surrogate)
+CRQA_Resp=subset(CRQA_data[CRQA_data$type == "Resp",])
+CRQA_HR=subset(CRQA_data[CRQA_data$type == "HR",])
+
+# Statistically compare CRQA indexes between normal and surrogate pairs 
+m1=lm(L ~ CRQA, CRQA_HR)
+summary(m1)
+
+m2 = lm(L~ CRQA, CRQA_Resp)
+summary(m2)
+
+m3=lm(ENTR ~ CRQA, CRQA_HR)
+summary(m3)
+
+m4 = lm(ENTR~ CRQA, CRQA_Resp)
+summary(m4)
+
+m5=lm(RR ~ CRQA, CRQA_HR)
+summary(m5)
+
+m6 = lm(RR ~ CRQA, CRQA_Resp)
+summary(m6)
+
 
 ```
 
@@ -627,13 +622,31 @@ read.csv("CRQA_surrogate.csv")
 
 ```{r}
 
-lmer(RR ~ condition)
-lmer(L ~ condition)
+# To subset data into heart rate and respiration data
+Finaldata_Resp=subset(Final_data2[Final_data2$type == "Resp",])
+Finaldata_HR=subset(Final_data2[Final_data2$type == "HR",])
 
+# To statistically investigate the relationship between condition and CRQA parameters
+m_RR_resp=lmer(RR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_Resp)
+summary(m_RR_resp)
+
+m_RR_HR=lmer(RR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_HR)
+summary(m_RR_HR)
+
+m_L_resp=lmer(L ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_Resp)
+summary(m_L_resp)
+
+m_L_HR=lmer(L ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_HR)
+summary(m_L_HR)
+
+m_ENTR_resp=lmer(ENTR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_Resp)
+summary(m_ENTR_resp)
+
+m_ENTR_HR=lmer(ENTR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_HR)
+summary(m_ENTR_HR)
 ```
 
 ### Effects of respiration coordination on heart rate coordination
  - describe how you would test those.
  - Optional: run the models and report them
  
-Correlation test of the two? can heart rate be explained by respiration?
