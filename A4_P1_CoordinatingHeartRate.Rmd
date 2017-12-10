@@ -47,9 +47,9 @@ setwd("~/Portfolio4/Assignment_4")
 library(ggplot2); library(groupdata2); library(dplyr); library(crqa); library(stringr); library(readr)
 
 # Load in datafile
-Synch_data=read.csv("Data/Study2_G5_T1_Synchronous.csv")
-Turn_data=read.csv("Data/Study2_G5_T2_TurnTaking.csv")
-Conv_data=read.csv("Data/Study2_G5_T3_Conversation.csv")
+Synch_data=read.csv("Data/Study2_G6_T1_Synchronous.csv")
+Turn_data=read.csv("Data/Study2_G6_T2_TurnTaking.csv")
+Conv_data=read.csv("Data/Study2_G6_T3_Conversation.csv")
 
 # To create plots for respiration 
 ggplot(Conv_data, aes(x=time, y= Resp1)) + geom_line(color = "blue") + geom_line(aes(x=time, y=Resp2, color ="red")) + theme(legend.position="none")
@@ -105,7 +105,7 @@ Synch_data$Resp2S=scale(Synch_data$Resp2)
 Synch_data$HR1S=scale(Synch_data$HR1)
 Synch_data$HR2S=scale(Synch_data$HR2)
 
-# To create HR plot for sclaed data
+# To create HR plot for scaled data
 plot1 = ggplot(Conv_data, aes(x=time, y= HR1S)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2S), color = "chartreuse4")
 plot2 = ggplot(Turn_data, aes(x=time, y= HR1S)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2S), color = "chartreuse4")
 plot3 = ggplot(Synch_data, aes(x=time, y= HR1S)) + geom_line(color = "purple") + geom_line(aes(x=time, y=HR2S), color = "chartreuse4")
@@ -120,10 +120,9 @@ plot6 = ggplot(Synch_data, aes(x=time, y= Resp1S)) + geom_line(color = "red") + 
 # To make one grid with all Respiration plots
 gridExtra::grid.arrange(plot4, plot5, plot6)
 
-# To perform CRQA
+# To create a loop to get paramters 
 par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
 
-# To create a loop to get paramters 
 files = list(Conv_data, Synch_data, Turn_data)
 
 Dimension_Resp = NULL
@@ -177,10 +176,15 @@ parameters = data.frame(Dimension_Resp, Radius_Resp, Delay_Resp, Dimension_HR, R
 
 
 mean(parameters$Dimension_Resp, na.rm = TRUE) # 2
-mean(parameters$Delay_Resp, na.rm = TRUE) # 28
-mean(parameters$Radius_Resp, na.rm = TRUE) # 0.378
+mean(parameters$Delay_Resp, na.rm = TRUE) # 47.5
+mean(parameters$Radius_Resp, na.rm = TRUE) # 0.382
 
-Results=crqa (Synch_data$Resp1S, Synch_data$Resp2S, delay=28, embed=2, radius= 0.378,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+mean(parameters$Dimension_HR, na.rm = TRUE) # 20
+mean(parameters$Delay_HR, na.rm = TRUE) # 0
+mean(parameters$Radius_HR, na.rm = TRUE) # 0.330
+
+# To perform CRQA on the repiration data
+Results=crqa (Synch_data$Resp1S, Synch_data$Resp2S, delay=47.5, embed=2, radius= 0.382,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
 
 # To plot RQA
 RP=Results$RP 
@@ -190,6 +194,23 @@ image(RP, xlab = "", ylab = "", col = cols)
 
 # To explore lags of coordination 
 Profile=drpdfromts(Synch_data$Resp1S, Synch_data$Resp2S,datatype = 'continuous',ws=50,radius=0.443) 
+timecourse = round( seq(-5000,5000,100)/1000, digit = 1) 
+maxlag = Profile$maxlag/1000 
+profile = Profile$profile*100 
+Prof=data.frame(profile) 
+ggplot(Prof, aes(timecourse,profile))+geom_line()+ geom_vline(xintercept = timecourse[maxlag], colour='red')
+
+# To perform CRQA on the HR data
+Results_HR=crqa (Synch_data$HR1S, Synch_data$HR2S, delay=0, embed=20, radius= 0.330,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+
+# To plot RQA
+RP=Results_HR$RP 
+RP = matrix(as.numeric(RP), nrow = ncol(RP))  
+cols = c("white","blue4") 
+image(RP, xlab = "", ylab = "", col = cols)
+
+# To explore lags of coordination 
+Profile=drpdfromts(Synch_data$HR1S, Synch_data$HR2S,datatype = 'continuous',ws=50,radius=0.443) 
 timecourse = round( seq(-5000,5000,100)/1000, digit = 1) 
 maxlag = Profile$maxlag/1000 
 profile = Profile$profile*100 
@@ -347,10 +368,10 @@ CRQA = function(data) {
 
 # To use the function 
 crqa_results = Final_data %>%
-  dplyr::select(-c(.groups)) %>%  # Remove .groups (not needed right?)
+  dplyr::select(-c(.groups)) %>%  # Remove .groups 
   dplyr::group_by(filename) %>%  # Group by each file
   dplyr::do(CRQA(.)) %>%  # Do CRQA on each group (file)
-  dplyr::ungroup()  # Ungroup (prob. not needed, didn't check) 
+  dplyr::ungroup()  # Ungroup  
 
 Final_data2 = merge(Final_data, crqa_results, by = "filename")
 
@@ -416,10 +437,10 @@ summary(m3)
 m4 = lm(RR~ CRQA, CRQA_Resp)
 summary(m4)
 
-m5 = lm (ENTR ~ CRQA_HR)
+m5 = lm (ENTR ~ CRQA, CRQA_HR)
 summary(m5)
 
-m6 = lm(ENTR ~ CRQA_Resp)
+m6 = lm(ENTR ~ CRQA, CRQA_Resp)
 summary(m6)
 
 ```
@@ -586,6 +607,10 @@ for (file in filelist3) {
 # To save the file to a csv file
 write.csv(CRQA_surrogate, file = "CRQA_surrogate.csv")
 
+# To read the file
+CRQA_surrogate=read.csv("CRQA_surrogate.csv")
+CRQA_surrogate=CRQA_surrogate[,-1]
+
 # To specify type of CRQA
 CRQA_surrogate$CRQA = "Surrogate"
 
@@ -622,27 +647,51 @@ summary(m6)
 
 ```{r}
 
+# To get column with study number
+for (file in 1:nrow(crqa_results)){
+  if (grepl("Study1", crqa_results$filename[file])){
+    crqa_results$Study[file] = 1}
+  if (grepl("Study2", crqa_results$filename[file])){
+    crqa_results$Study[file] = 2}
+}
+
+# To get group number
+crqa_results$Group=regmatches(crqa_results$filename, regexpr("[G].*[0-9]", crqa_results$filename))
+
+crqa_results$Group = gsub("[G, _, T]", "", crqa_results$Group)
+
+crqa_results$Group=substr(crqa_results$Group, 1, nchar(crqa_results$Group)-1)
+
+# To get trial number
+crqa_results$Trial=regmatches(crqa_results$filename, regexpr("[T].*[0-9]", crqa_results$filename))
+
+crqa_results$Trial = gsub("[T]", "", crqa_results$Trial)
+
+# To get condition
+crqa_results$filename=as.character(crqa_results$filename)
+crqa_results = crqa_results %>% group_by(filename) %>% mutate(Condition = gsub('.{4}$', '', strsplit(filename, "_")[[1]][4]))
+
 # To subset data into heart rate and respiration data
-Finaldata_Resp=subset(Final_data2[Final_data2$type == "Resp",])
-Finaldata_HR=subset(Final_data2[Final_data2$type == "HR",])
+CRQAresults_Resp=subset(crqa_results[crqa_results$type == "Resp",])
+CRQAresults_HR=subset(crqa_results[crqa_results$type == "HR",])
 
 # To statistically investigate the relationship between condition and CRQA parameters
-m_RR_resp=lmer(RR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_Resp)
+m_RR_resp=lmer(RR ~ Condition + (1|Study) + (1|Group) , CRQAresults_Resp)
 summary(m_RR_resp)
 
-m_RR_HR=lmer(RR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_HR)
+m_RR_HR=lmer(RR ~ Condition + (1|Study) + (1|Group) , CRQAresults_HR)
 summary(m_RR_HR)
 
-m_L_resp=lmer(L ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_Resp)
+m_L_resp=lmer(L ~ Condition + (1|Study) + (1|Group) , CRQAresults_Resp)
 summary(m_L_resp)
 
-m_L_HR=lmer(L ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_HR)
+m_L_HR=lmer(L ~ Condition + (1|Study) + (1|Group) , CRQAresults_HR)
 summary(m_L_HR)
 
-m_ENTR_resp=lmer(ENTR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_Resp)
+m_ENTR_resp=lmer(ENTR ~ Condition + (1|Study) + (1|Group) , CRQAresults_Resp)
 summary(m_ENTR_resp)
 
-m_ENTR_HR=lmer(ENTR ~ Condition + (1|Study) + (1+Trial|Group) , Finaldata_HR)
+m_ENTR_HR=lmer(ENTR ~ Condition + (1|Study) + (1|Group) , CRQAresults_HR)
 summary(m_ENTR_HR)
 ```
 
